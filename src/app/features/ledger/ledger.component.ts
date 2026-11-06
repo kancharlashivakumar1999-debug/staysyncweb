@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { TenantCharge, TenantPayment, Branch, Guest } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 
@@ -18,6 +19,12 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
           <p class="subtitle">UC-03: Recurring rent charges, partial payments, receipts, and tenant balances.</p>
         </div>
         <div class="actions">
+          <button class="btn btn-email" (click)="sendRentRemindersEmail()" [disabled]="sendingReminders">
+            <span>✉️</span> {{ sendingReminders ? 'Sending...' : 'Email Reminders (1st–5th)' }}
+          </button>
+          <button class="btn btn-whatsapp" (click)="sendRentReminders()" [disabled]="sendingReminders">
+            <span>💬</span> WhatsApp Reminders
+          </button>
           <button class="btn btn-secondary" (click)="openChargeModal()">+ Add Charge</button>
           <button class="btn btn-primary" (click)="openPaymentModal()">Record Payment</button>
         </div>
@@ -258,6 +265,10 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
     .amount.success { color: #16a34a; }
     .empty-state { padding: 3rem; text-align: center; color: #94a3b8; font-weight: 500; }
     .modal-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .btn-email { background: #ea4335; color: #fff; display: inline-flex; align-items: center; gap: 0.4rem; }
+    .btn-email:hover { background: #d93025; }
+    .btn-whatsapp { background: #25D366; color: #fff; display: inline-flex; align-items: center; gap: 0.4rem; }
+    .btn-whatsapp:hover { background: #20ba5a; }
   `]
 })
 export class LedgerComponent implements OnInit {
@@ -269,6 +280,7 @@ export class LedgerComponent implements OnInit {
 
   totalPendingDues: number = 0;
   totalCollected: number = 0;
+  sendingReminders: boolean = false;
 
   showChargeModal = false;
   showPaymentModal = false;
@@ -294,10 +306,56 @@ export class LedgerComponent implements OnInit {
     receiptNotes: ''
   };
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(
+    private api: PgApiService,
+    private auth: AuthService,
+    private toast: ToastService
+  ) {}
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  sendRentReminders(force: boolean = false): void {
+    const owner = this.auth.currentUserValue;
+    if (!owner) return;
+
+    this.sendingReminders = true;
+    this.api.sendWhatsAppDueReminders(owner.ownerId, null, force).subscribe({
+      next: (res: any) => {
+        this.sendingReminders = false;
+        if (res.remindersSent > 0) {
+          this.toast.success(`Dispatched ${res.remindersSent} WhatsApp rent reminders!`, 'WhatsApp Reminders Sent');
+        } else {
+          this.toast.info(res.message || 'No due reminders were dispatched.', 'WhatsApp Service');
+        }
+      },
+      error: (err) => {
+        this.sendingReminders = false;
+        this.toast.error(err.error?.message || 'Failed to dispatch WhatsApp reminders.', 'Error');
+      }
+    });
+  }
+
+  sendRentRemindersEmail(force: boolean = false): void {
+    const owner = this.auth.currentUserValue;
+    if (!owner) return;
+
+    this.sendingReminders = true;
+    this.api.sendEmailDueReminders(owner.ownerId, null, force).subscribe({
+      next: (res: any) => {
+        this.sendingReminders = false;
+        if (res.remindersSent > 0) {
+          this.toast.success(`Dispatched ${res.remindersSent} Email rent reminders!`, 'Gmail Reminders Sent');
+        } else {
+          this.toast.info(res.message || 'No due reminders were dispatched.', 'Gmail Service');
+        }
+      },
+      error: (err) => {
+        this.sendingReminders = false;
+        this.toast.error(err.error?.message || 'Failed to dispatch Email reminders.', 'Error');
+      }
+    });
   }
 
   loadData(): void {

@@ -5,6 +5,8 @@ export interface Owner {
   email: string;
   phoneNumber: string;
   expectedBranches: number;
+  role?: string;
+  branchIds?: string[];
   token?: string;
   refreshToken?: string;
 }

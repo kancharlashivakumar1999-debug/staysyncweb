@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { Branch, Room, Owner, Floor } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 import { BedHistoryModalComponent } from '../../shared/components/bed-history-modal.component';
@@ -100,7 +101,7 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
                            [class.available]="!bed.isOccupied">
                         <div class="bed-header">
                           <span class="bed-num" (click)="openBedHistory(bed.bedId)" style="cursor: pointer; text-decoration: underline;" title="Click to view full Bed History">
-                            {{ bed.bedCode }} ({{ bed.bedNumber }}) 🔍
+                            Bed {{ bed.bedNumber }} 🔍
                           </span>
                           <span class="bed-status">{{ bed.isOccupied ? 'Occupied' : 'Free' }}</span>
                         </div>
@@ -633,7 +634,7 @@ export class BranchesComponent implements OnInit {
     expectedBranches: 1
   };
 
-  constructor(private api: PgApiService, private auth: AuthService, private router: Router) {}
+  constructor(private api: PgApiService, private auth: AuthService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.auth.currentUser$.subscribe(user => {
@@ -658,7 +659,7 @@ export class BranchesComponent implements OnInit {
   handleAddNewBranch(): void {
     const expected = this.currentOwner?.expectedBranches || 1;
     if (this.branches.length >= expected) {
-      alert(`Branch limit reached (${this.branches.length}/${expected}). Please update your profile's Expected Branches to add more properties.`);
+      this.toast.error(`Branch limit reached (${this.branches.length}/${expected}). Please update your profile's Expected Branches to add more properties.`);
       this.openProfileModal();
       return;
     }
@@ -680,13 +681,13 @@ export class BranchesComponent implements OnInit {
 
   saveBranch(): void {
     if (!this.newBranch.branchName || !this.newBranch.addressLine) {
-      alert('Please fill Branch Name and Address Line.');
+      this.toast.warning('Please fill Branch Name and Address Line.');
       return;
     }
 
     const expected = this.currentOwner?.expectedBranches || 1;
     if (this.branches.length >= expected) {
-      alert(`Cannot create branch: quota of ${expected} reached. Update your profile first.`);
+      this.toast.error(`Cannot create branch: quota of ${expected} reached. Update your profile first.`);
       this.showBranchModal = false;
       this.openProfileModal();
       return;
@@ -700,9 +701,10 @@ export class BranchesComponent implements OnInit {
       next: () => {
         this.showBranchModal = false;
         this.loadBranches();
+        this.toast.success('Branch and initial floors created successfully!');
       },
       error: (err) => {
-        alert(err?.error?.message || err?.message || 'Error creating branch. Check your quota.');
+        this.toast.error(err?.error?.message || err?.message || 'Error creating branch. Check your quota.');
       }
     });
   }
@@ -744,7 +746,7 @@ export class BranchesComponent implements OnInit {
 
   saveFloor(): void {
     if (!this.newFloor.branchId || !this.newFloor.floorName) {
-      alert('Please select a Branch and provide a Floor Name.');
+      this.toast.warning('Please select a Branch and provide a Floor Name.');
       return;
     }
 
@@ -752,9 +754,10 @@ export class BranchesComponent implements OnInit {
       next: () => {
         this.showFloorModal = false;
         this.loadBranches();
+        this.toast.success('Floor created successfully!');
       },
       error: (err) => {
-        alert(err?.error?.message || 'Failed to add floor.');
+        this.toast.error(err?.error?.message || 'Failed to add floor.');
       }
     });
   }
@@ -821,11 +824,11 @@ export class BranchesComponent implements OnInit {
 
   saveRoom(): void {
     if (!this.newRoom.roomNumber) {
-      alert('Please enter a Room Number.');
+      this.toast.warning('Please enter a Room Number.');
       return;
     }
     if (!this.newRoom.floorId) {
-      alert('Please select a Floor first.');
+      this.toast.warning('Please select a Floor first.');
       return;
     }
     // Room Rent is strictly calculated as totalBeds * bedRent
@@ -835,9 +838,10 @@ export class BranchesComponent implements OnInit {
       next: () => {
         this.showRoomModal = false;
         this.loadBranches();
+        this.toast.success('Room and beds created successfully!');
       },
       error: (err) => {
-        alert(err?.error?.message || 'Failed to add room.');
+        this.toast.error(err?.error?.message || 'Failed to add room.');
       }
     });
   }
@@ -878,7 +882,7 @@ export class BranchesComponent implements OnInit {
 
   saveEditedRoom(): void {
     if (!this.editingRoom.roomNumber) {
-      alert('Please enter a Room Number.');
+      this.toast.warning('Please enter a Room Number.');
       return;
     }
     // Recompute read-only room rent
@@ -901,9 +905,10 @@ export class BranchesComponent implements OnInit {
       next: () => {
         this.showEditRoomModal = false;
         this.loadBranches();
+        this.toast.success('Room updated successfully!');
       },
       error: (err) => {
-        alert(err?.error?.message || 'Failed to update room.');
+        this.toast.error(err?.error?.message || 'Failed to update room.');
       }
     });
   }
@@ -925,12 +930,12 @@ export class BranchesComponent implements OnInit {
     if (!ownerId) return;
 
     if (!this.ownerProfileForm.fullName || !this.ownerProfileForm.phoneNumber) {
-      alert('Please fill Full Name and Phone Number.');
+      this.toast.warning('Please fill Full Name and Phone Number.');
       return;
     }
 
     if (!this.ownerProfileForm.expectedBranches || this.ownerProfileForm.expectedBranches < 1) {
-      alert('Expected Branches must be at least 1.');
+      this.toast.warning('Expected Branches must be at least 1.');
       return;
     }
 
@@ -943,10 +948,10 @@ export class BranchesComponent implements OnInit {
           this.currentOwner = merged;
         }
         this.showProfileModal = false;
-        alert('Owner profile and branch quota updated successfully!');
+        this.toast.success('Owner profile and branch quota updated successfully!');
       },
       error: (err) => {
-        alert(err?.error?.message || 'Failed to update profile.');
+        this.toast.error(err?.error?.message || 'Failed to update profile.');
       }
     });
   }

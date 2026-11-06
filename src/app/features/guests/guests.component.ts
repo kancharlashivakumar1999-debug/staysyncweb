@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { Guest, Branch, Room } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 import { StatusBadgePipe } from '../../shared/pipes/status-badge.pipe';
@@ -159,7 +160,7 @@ import { StatusBadgePipe } from '../../shared/pipes/status-badge.pipe';
                 <label>Select Bed *</label>
                 <select [(ngModel)]="newGuest.bedId">
                   <option value="">-- Choose Bed --</option>
-                  <option *ngFor="let b of getAvailableBeds()" [value]="b.bedId">{{ b.bedCode }} - Bed {{ b.bedNumber }} (₹{{ b.bedRent }}/mo)</option>
+                  <option *ngFor="let b of getAvailableBeds()" [value]="b.bedId">Bed {{ b.bedNumber }} (₹{{ b.bedRent }}/mo)</option>
                 </select>
               </div>
               <div class="form-group">
@@ -174,10 +175,15 @@ import { StatusBadgePipe } from '../../shared/pipes/status-badge.pipe';
 
             <div class="form-row-2">
               <div class="form-group"><label>Full Name *</label><input type="text" [(ngModel)]="newGuest.fullName" placeholder="Ramesh" /></div>
-              <div class="form-group"><label>Phone Number *</label><input type="text" [(ngModel)]="newGuest.phoneNumber" placeholder="+91 99887 76655" /></div>
+              <div class="form-group"><label>Email Address *</label><input type="email" [(ngModel)]="newGuest.email" placeholder="ramesh@example.com" /></div>
             </div>
 
-            <div class="form-row-3">
+            <div class="form-row-2">
+              <div class="form-group"><label>Phone Number *</label><input type="text" [(ngModel)]="newGuest.phoneNumber" placeholder="+91 99887 76655" /></div>
+              <div class="form-group"><label>Emergency Contact</label><input type="text" [(ngModel)]="newGuest.emergencyContact" /></div>
+            </div>
+
+            <div class="form-row-2">
               <div class="form-group"><label>Age</label><input type="number" [(ngModel)]="newGuest.age" /></div>
               <div class="form-group">
                 <label>Gender</label>
@@ -187,7 +193,6 @@ import { StatusBadgePipe } from '../../shared/pipes/status-badge.pipe';
                   <option value="Other">Other</option>
                 </select>
               </div>
-              <div class="form-group"><label>Emergency Contact</label><input type="text" [(ngModel)]="newGuest.emergencyContact" /></div>
             </div>
 
             <div class="form-row-2">
@@ -355,7 +360,7 @@ export class GuestsComponent implements OnInit {
     settlementNotes: 'Vacate settlement after room inspection.'
   };
 
-  constructor(private api: PgApiService, private auth: AuthService, private route: ActivatedRoute) {}
+  constructor(private api: PgApiService, private auth: AuthService, private route: ActivatedRoute, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loadData();
@@ -431,17 +436,31 @@ export class GuestsComponent implements OnInit {
   }
 
   saveGuest(): void {
-    if (!this.newGuest.fullName || !this.newGuest.phoneNumber || !this.newGuest.bedId) {
-      alert('Please fill Name, Phone and select an available Bed.');
+    if (!this.newGuest.fullName || !this.newGuest.email || !this.newGuest.phoneNumber || !this.newGuest.bedId) {
+      this.toast.warning('Please fill Name, Email, Phone and select an available Bed.');
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.newGuest.email.trim())) {
+      this.toast.warning('Please enter a valid email address.');
+      return;
+    }
+
     const payload = {
       ...this.newGuest,
+      email: this.newGuest.email.trim(),
       ownerId: this.auth.currentUserValue?.ownerId
     };
-    this.api.checkInGuest(payload).subscribe(() => {
-      this.showGuestModal = false;
-      this.loadData();
+    this.api.checkInGuest(payload).subscribe({
+      next: () => {
+        this.showGuestModal = false;
+        this.loadData();
+        this.toast.success('Resident checked in successfully!');
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Failed to check-in resident.');
+      }
     });
   }
 

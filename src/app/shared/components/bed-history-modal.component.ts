@@ -14,7 +14,7 @@ import { InrCurrencyPipe } from '../pipes/inr-currency.pipe';
         <div class="modal-header">
           <div class="header-titles">
             <div class="title-top">
-              <span class="bed-tag">{{ history?.bedCode || 'BED' }}</span>
+              <span class="bed-tag">Bed</span>
               <h3>Bed {{ history?.bedNumber }} Lifetime History & Collections</h3>
             </div>
             <p class="subtitle">

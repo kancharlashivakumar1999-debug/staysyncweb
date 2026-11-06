@@ -1,4 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: 'https://pgmanagementwebapi.onrender.com/api'
+  apiUrl: 'http://localhost:5000/api'
 };
+

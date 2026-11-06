@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { DashboardSummary, Branch, Guest, Owner, Floor, Room, Bed, TenantLedgerSummary, TenantPayment } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 import { BedHistoryModalComponent } from '../../shared/components/bed-history-modal.component';
@@ -248,7 +249,7 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
           <div class="modal-header">
             <div class="modal-header-text">
               <h3>Record Resident Payment</h3>
-              <p class="modal-subtitle">{{ activeBedInfo?.branchName }} • Room {{ activeBedInfo?.roomNumber }} • Bed {{ activeBedInfo?.bedNumber }} ({{ activeBedInfo?.bedCode }})</p>
+              <p class="modal-subtitle">{{ activeBedInfo?.branchName }} • Room {{ activeBedInfo?.roomNumber }} • Bed {{ activeBedInfo?.bedNumber }}</p>
             </div>
             <button class="close-btn" (click)="showPaymentModal = false">✕</button>
           </div>
@@ -959,7 +960,7 @@ export class DashboardComponent implements OnInit {
     new Date().getFullYear() + 1
   ];
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(private api: PgApiService, private auth: AuthService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.auth.currentUser$.subscribe(owner => {
@@ -1115,7 +1116,7 @@ export class DashboardComponent implements OnInit {
 
   onBedClicked(bed: Bed, room: Room, floor: Floor, branch: Branch): void {
     if (!bed.isOccupied) {
-      alert(`Bed ${bed.bedNumber} is currently vacant. Payments can only be recorded for occupied beds.`);
+      this.toast.warning(`Bed ${bed.bedNumber} is currently vacant. Payments can only be recorded for occupied beds.`);
       return;
     }
 
@@ -1289,7 +1290,7 @@ export class DashboardComponent implements OnInit {
           });
         } else {
           this.loadingLedger = false;
-          alert('Could not find active resident details for this bed.');
+          this.toast.error('Could not find active resident details for this bed.');
           this.showPaymentModal = false;
         }
       }
@@ -1432,7 +1433,7 @@ export class DashboardComponent implements OnInit {
   submitPayment(): void {
     if (!this.activeLedger || !this.currentOwner) return;
     if ((this.paymentForm.amountPaid || 0) <= 0) {
-      alert('Please enter a valid payment amount greater than ₹0.');
+      this.toast.warning('Please enter a valid payment amount greater than ₹0.');
       return;
     }
 
@@ -1457,14 +1458,14 @@ export class DashboardComponent implements OnInit {
       next: (payment) => {
         this.submittingPayment = false;
         this.showPaymentModal = false;
-        alert(`Payment of ₹${payment.amountPaid} recorded successfully! Receipt Code: ${payment.paymentCode}\nAllocated: Advance ₹${this.waterfallAdvanceCovered}, Room Rent ₹${this.waterfallRentCovered}. Remaining Dues: ₹${this.waterfallTotalRemainingPending}`);
+        this.toast.success(`Payment of ₹${payment.amountPaid} recorded successfully! Receipt: ${payment.paymentCode}`);
         if (this.currentOwner) {
           this.loadDashboardData(this.currentOwner.ownerId);
         }
       },
       error: (err) => {
         this.submittingPayment = false;
-        alert(err?.error?.message || 'Failed to record payment in database.');
+        this.toast.error(err?.error?.message || 'Failed to record payment in database.');
       }
     });
   }

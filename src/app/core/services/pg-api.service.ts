@@ -276,4 +276,21 @@ export class PgApiService {
   getBedLifetimeHistory(bedId: string): Observable<any> {
     return this.httpApi.get<any>(`paymentanalytics/bed-history/${bedId}`);
   }
+
+  // --- WhatsApp & Notification Services ---
+  sendWhatsAppDueReminders(ownerId: string, branchId?: string | null, forceSend: boolean = false): Observable<any> {
+    let endpoint = `notification/whatsapp/due-reminders?ownerId=${ownerId}&forceSend=${forceSend}`;
+    if (branchId) endpoint += `&branchId=${branchId}`;
+    return this.httpApi.post<any>(endpoint, {});
+  }
+
+  sendEmailDueReminders(ownerId: string, branchId?: string | null, forceSend: boolean = false): Observable<any> {
+    let endpoint = `notification/email/due-reminders?ownerId=${ownerId}&forceSend=${forceSend}`;
+    if (branchId) endpoint += `&branchId=${branchId}`;
+    return this.httpApi.post<any>(endpoint, {});
+  }
+
+  sendCustomWhatsAppMessage(dto: { phoneNumber: string; message: string; type?: string; recipientName?: string }): Observable<any> {
+    return this.httpApi.post<any>('notification/whatsapp/send', dto);
+  }
 }

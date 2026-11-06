@@ -34,7 +34,7 @@ import { Owner, Branch } from '../../models/pg.models';
           <div class="avatar">{{ owner.fullName.charAt(0) || 'O' }}</div>
           <div class="owner-meta">
             <span class="owner-name">{{ owner.fullName }} ({{ owner.ownerCode }})</span>
-            <span class="owner-role">Owner • {{ owner.expectedBranches }} Properties Quota</span>
+            <span class="owner-role">{{ owner.role || 'Owner' }} • {{ owner.expectedBranches }} Properties Quota</span>
           </div>
         </div>
 
