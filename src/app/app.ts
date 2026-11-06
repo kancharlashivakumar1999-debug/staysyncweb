@@ -31,8 +31,11 @@ import { Owner, Branch } from './models/pg.models';
         <app-sidebar 
           [isOpen]="mobileMenuOpen"
           [branchesCount]="branches.length"
-          (closeMenu)="mobileMenuOpen = false">
+          (closeMenu)="mobileMenuOpen = false"
+          (logout)="onLogout()">
         </app-sidebar>
+
+        <div class="sidebar-backdrop" *ngIf="mobileMenuOpen" (click)="mobileMenuOpen = false"></div>
 
         <main class="content-viewport">
           <router-outlet></router-outlet>
@@ -75,12 +78,26 @@ import { Owner, Branch } from './models/pg.models';
       padding: 1.5rem 2rem;
       background-color: var(--bg-main);
     }
-    @media (max-width: 1023px) {
+    .sidebar-backdrop {
+      display: none;
+    }
+    @media (max-width: 1024px) {
       .content-viewport { padding: 1.25rem; }
+      .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(2px);
+        z-index: 999;
+      }
     }
     @media (max-width: 767px) {
       .main-body { height: calc(100vh - 56px); }
-      .content-viewport { padding: 1rem; }
+      .content-viewport { padding: 0.85rem; }
     }
   `]
 })

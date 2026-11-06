@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { MonthlyClosing, FinancialProfitLoss, Branch } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 
@@ -22,14 +23,20 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 
       <!-- Month Selector Bar -->
       <div class="filter-card">
-        <label>Selected Month:</label>
-        <input type="month" [(ngModel)]="selectedMonth" (change)="loadPLReport()" />
+        <div class="filter-group">
+          <label>Selected Month:</label>
+          <input type="month" [(ngModel)]="selectedMonth" (change)="onFilterChange()" />
+        </div>
 
-        <label>Filter Property:</label>
-        <select [(ngModel)]="selectedBranchId" (change)="loadPLReport()">
-          <option value="">All Properties (Consolidated)</option>
-          <option *ngFor="let b of branches" [value]="b.branchId">{{ b.branchName }}</option>
-        </select>
+        <div class="filter-group">
+          <label>Filter Property:</label>
+          <select [(ngModel)]="selectedBranchId" (change)="onFilterChange()">
+            <option value="">All Properties (Consolidated)</option>
+            <option *ngFor="let b of branches" [value]="b.branchId">
+              {{ b.branchName }} ({{ b.branchCode }})
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Financial P&L Cards -->
@@ -143,9 +150,34 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
     .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; }
     .btn-primary { background: #2563eb; color: #fff; }
     .btn-secondary { background: #e2e8f0; color: #1e293b; }
-    .filter-card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1rem; display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; }
-    .filter-card label { font-size: 0.85rem; font-weight: 600; color: #475569; }
-    .filter-card input, .filter-card select { padding: 0.45rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; }
+    .filter-card { 
+      background: #fff; 
+      border-radius: 12px; 
+      border: 1px solid #e2e8f0; 
+      padding: 1rem 1.25rem; 
+      display: flex; 
+      gap: 1.5rem; 
+      align-items: center; 
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      flex: 1 1 200px;
+    }
+    .filter-group label { font-size: 0.775rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; }
+    .filter-group input, .filter-group select { 
+      padding: 0.5rem 0.85rem; 
+      border: 1px solid #cbd5e1; 
+      border-radius: 6px; 
+      font-size: 0.9rem; 
+      font-weight: 600;
+      color: #0f172a;
+      background: #ffffff;
+      width: 100%;
+    }
     .pnl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
     .pnl-card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; display: flex; flex-direction: column; }
     .pnl-card.income { border-left: 4px solid #10b981; }
@@ -175,6 +207,16 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
     .modal label { font-size: 0.8rem; font-weight: 600; color: #475569; }
     .modal input, .modal select, .modal textarea { padding: 0.55rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; font-family: inherit; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+    @media (max-width: 1024px) {
+      .filter-card { gap: 1rem; }
+      .filter-group { flex: 1 1 180px; }
+    }
+    @media (max-width: 640px) {
+      .reports-container { padding: 1rem 0.5rem; }
+      .filter-card { flex-direction: column; align-items: stretch; padding: 1rem; }
+      .filter-group { width: 100%; flex: 1 1 auto; }
+      .pnl-grid { grid-template-columns: 1fr; }
+    }
   `]
 })
 export class ReportsComponent implements OnInit {
@@ -192,7 +234,7 @@ export class ReportsComponent implements OnInit {
     notes: ''
   };
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(private api: PgApiService, private auth: AuthService, private toast: ToastService) {}
 
   ngOnInit(): void {
     const owner = this.auth.currentUserValue;
@@ -207,12 +249,18 @@ export class ReportsComponent implements OnInit {
     this.loadClosings();
   }
 
+  onFilterChange(): void {
+    this.loadPLReport();
+    this.loadClosings();
+  }
+
   loadPLReport(): void {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
-    this.api.getMonthlyPL(owner.ownerId, this.selectedBranchId || null, this.selectedMonth).subscribe(res => {
-      this.plReport = res;
+    this.api.getMonthlyPL(owner.ownerId, this.selectedBranchId || null, this.selectedMonth).subscribe({
+      next: res => this.plReport = res,
+      error: () => this.toast.error('Failed to load P&L statement.')
     });
   }
 
@@ -220,8 +268,9 @@ export class ReportsComponent implements OnInit {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
-    this.api.getClosingHistory(owner.ownerId, this.selectedBranchId || null).subscribe(res => {
-      this.closings = res;
+    this.api.getClosingHistory(owner.ownerId, this.selectedBranchId || null).subscribe({
+      next: res => this.closings = res,
+      error: () => this.toast.error('Failed to load closing history.')
     });
   }
 
@@ -230,9 +279,13 @@ export class ReportsComponent implements OnInit {
     if (!owner) return;
 
     const payload = { ...this.closingForm, ownerId: owner.ownerId };
-    this.api.closeMonth(payload).subscribe(() => {
-      this.showClosingModal = false;
-      this.loadClosings();
+    this.api.closeMonth(payload).subscribe({
+      next: () => {
+        this.showClosingModal = false;
+        this.loadClosings();
+        this.toast.success(`Month ${this.closingForm.closingMonth} closed successfully!`);
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to close month.')
     });
   }
 }

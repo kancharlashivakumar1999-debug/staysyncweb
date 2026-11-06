@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { Branch, Owner, PaymentAnalyticsOverview, HierarchyCollectionItem } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 import { BedHistoryModalComponent } from '../../shared/components/bed-history-modal.component';
@@ -201,7 +202,7 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
       gap: 1rem;
       h2 { font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; }
       .subtitle { color: #64748b; font-size: 0.9rem; margin-top: 0.25rem; }
-      .header-controls { display: flex; gap: 1rem; }
+      .header-controls { display: flex; gap: 1rem; flex-wrap: wrap; }
     }
     .control-group {
       display: flex;
@@ -375,6 +376,16 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 1024px) {
       .kpi-row { grid-template-columns: 1fr; }
+      .header-controls { width: 100%; }
+      .control-group { flex: 1 1 140px; }
+      .control-group select { width: 100%; min-width: 0; }
+    }
+    @media (max-width: 640px) {
+      .analytics-container { padding: 1rem 0.5rem; }
+      .view-header { flex-direction: column; align-items: stretch; }
+      .header-controls { flex-direction: column; width: 100%; gap: 0.75rem; }
+      .control-group { width: 100%; }
+      .control-group select { width: 100%; }
     }
   `]
 })
@@ -382,8 +393,15 @@ export class PaymentAnalyticsComponent implements OnInit {
   currentOwner: Owner | null = null;
   branches: Branch[] = [];
   selectedBranchId = '';
-  selectedYear = 2026;
-  availableYears = [2026, 2025, 2024];
+  selectedYear: number = new Date().getFullYear();
+  availableYears: number[] = [
+    new Date().getFullYear(),
+    new Date().getFullYear() - 1,
+    new Date().getFullYear() - 2,
+    new Date().getFullYear() - 3,
+    new Date().getFullYear() - 4,
+    new Date().getFullYear() + 1
+  ];
 
   loading = true;
   overview: PaymentAnalyticsOverview | null = null;
@@ -396,7 +414,7 @@ export class PaymentAnalyticsComponent implements OnInit {
   showBedHistoryModal = false;
   selectedBedHistoryId: string | null = null;
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(private api: PgApiService, private auth: AuthService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.auth.currentUser$.subscribe(owner => {
@@ -423,7 +441,10 @@ export class PaymentAnalyticsComponent implements OnInit {
         this.overview = data;
         this.loading = false;
       },
-      error: () => this.loading = false
+      error: () => {
+        this.loading = false;
+        this.toast.error('Failed to load collection analytics.');
+      }
     });
   }
 

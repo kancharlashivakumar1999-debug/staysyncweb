@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ComponentCanDeactivate } from '../../core/guards/pending-changes.guard';
 import { Complaint, Branch, Guest } from '../../models/pg.models';
 
 @Component({
@@ -205,7 +207,7 @@ import { Complaint, Branch, Guest } from '../../models/pg.models';
     .modal-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
   `]
 })
-export class ComplaintsComponent implements OnInit {
+export class ComplaintsComponent implements OnInit, ComponentCanDeactivate {
   complaints: Complaint[] = [];
   branches: Branch[] = [];
   guests: Guest[] = [];
@@ -231,17 +233,28 @@ export class ComplaintsComponent implements OnInit {
     resolutionNotes: ''
   };
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(private api: PgApiService, private auth: AuthService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  canDeactivate(): boolean {
+    if (this.showModal) {
+      const isDirty = !!this.newComplaint.title.trim() || !!this.newComplaint.description.trim();
+      return !isDirty;
+    }
+    return true;
   }
 
   loadData(): void {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
-    this.api.getComplaints(owner.ownerId).subscribe(c => this.complaints = c);
+    this.api.getComplaints(owner.ownerId).subscribe({
+      next: c => this.complaints = c,
+      error: () => this.toast.error('Failed to load complaints.')
+    });
     this.api.getBranches(owner.ownerId).subscribe(b => {
       this.branches = b;
       if (b.length > 0 && !this.newComplaint.branchId) {
@@ -282,6 +295,11 @@ export class ComplaintsComponent implements OnInit {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
+    if (!this.newComplaint.title.trim() || !this.newComplaint.description.trim()) {
+      this.toast.warning('Please provide both complaint title and description.');
+      return;
+    }
+
     const payload = {
       ...this.newComplaint,
       ownerId: owner.ownerId,
@@ -289,18 +307,28 @@ export class ComplaintsComponent implements OnInit {
       roomId: this.newComplaint.roomId || null
     };
 
-    this.api.createComplaint(payload).subscribe(() => {
-      this.showModal = false;
-      this.loadData();
+    this.api.createComplaint(payload).subscribe({
+      next: () => {
+        this.showModal = false;
+        this.newComplaint.title = '';
+        this.newComplaint.description = '';
+        this.loadData();
+        this.toast.success('Complaint ticket logged successfully!');
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to raise complaint.')
     });
   }
 
   submitStatusUpdate(): void {
     if (!this.selectedComplaint) return;
 
-    this.api.updateComplaintStatus(this.selectedComplaint.complaintId, this.statusUpdate).subscribe(() => {
-      this.showUpdateModal = false;
-      this.loadData();
+    this.api.updateComplaintStatus(this.selectedComplaint.complaintId, this.statusUpdate).subscribe({
+      next: () => {
+        this.showUpdateModal = false;
+        this.loadData();
+        this.toast.success('Complaint status updated successfully!');
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to update complaint status.')
     });
   }
 }

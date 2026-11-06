@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { TenantCharge, TenantPayment, Branch, Guest } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
+import { ComponentCanDeactivate } from '../../core/guards/pending-changes.guard';
 
 @Component({
   selector: 'app-ledger',
@@ -271,7 +272,7 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
     .btn-whatsapp:hover { background: #20ba5a; }
   `]
 })
-export class LedgerComponent implements OnInit {
+export class LedgerComponent implements OnInit, ComponentCanDeactivate {
   activeTab: 'dues' | 'payments' = 'dues';
   pendingCharges: TenantCharge[] = [];
   recentPayments: TenantPayment[] = [];
@@ -314,6 +315,20 @@ export class LedgerComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  canDeactivate(): boolean {
+    if (this.showPaymentModal) {
+      const isDirty = this.newPayment.amountPaid > 0 ||
+                      !!this.newPayment.transactionReference.trim() ||
+                      !!this.newPayment.receiptNotes.trim();
+      return !isDirty;
+    }
+    if (this.showChargeModal) {
+      const isDirty = this.newCharge.amount > 0 || !!this.newCharge.description.trim();
+      return !isDirty;
+    }
+    return true;
   }
 
   sendRentReminders(force: boolean = false): void {

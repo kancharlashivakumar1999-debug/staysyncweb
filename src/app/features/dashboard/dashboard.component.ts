@@ -8,6 +8,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { DashboardSummary, Branch, Guest, Owner, Floor, Room, Bed, TenantLedgerSummary, TenantPayment } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 import { BedHistoryModalComponent } from '../../shared/components/bed-history-modal.component';
+import { ComponentCanDeactivate } from '../../core/guards/pending-changes.guard';
 
 @Component({
   selector: 'app-dashboard',
@@ -570,9 +571,9 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
     .divider { width: 1px; height: 40px; background: #334155; }
 
     .content-card { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
     .card-header h3 { font-size: 1.15rem; font-weight: 700; margin: 0; }
-    .quick-card-actions { display: flex; gap: 0.5rem; }
+    .quick-card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .branch-cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
     .branch-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; background: #f8fafc; }
     .branch-card-header { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -899,17 +900,46 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
     @keyframes spin { to { transform: rotate(360deg); } }
 
     @media (max-width: 1024px) {
+      .dashboard-wrapper { padding: 1.25rem 1rem; }
+      .header-buttons { flex-wrap: wrap; width: 100%; }
+      .header-buttons .btn { flex: 1 1 auto; }
       .kpi-grid { grid-template-columns: repeat(2, 1fr); }
       .branch-cards-grid { grid-template-columns: 1fr; }
       .matrix-rooms-grid { grid-template-columns: 1fr; }
       .finance-banner { flex-direction: column; align-items: flex-start; gap: 1rem; .divider { display: none; } }
-      .property-selector-card { flex-direction: column; align-items: flex-start; gap: 0.75rem; .property-dropdown { min-width: 100%; } }
+      .property-selector-card { 
+        flex-direction: column; 
+        align-items: stretch; 
+        gap: 0.75rem; 
+        .selector-left { width: 100%; }
+        .selector-left > div { width: 100%; }
+        .property-dropdown { min-width: 0; width: 100%; }
+      }
       .resident-summary-banner { flex-direction: column; align-items: flex-start; gap: 1rem; .res-balances { width: 100%; justify-content: space-between; } }
       .dues-split-grid { grid-template-columns: 1fr; }
     }
+
+    @media (max-width: 640px) {
+      .dashboard-wrapper { padding: 1rem 0.5rem; gap: 1rem; }
+      .view-header { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+      .view-header h2 { font-size: 1.35rem; }
+      .subtitle { font-size: 0.8rem; }
+      .header-buttons { flex-direction: column; width: 100%; gap: 0.5rem; }
+      .header-buttons .btn { width: 100%; justify-content: center; }
+      .card-header { flex-direction: column; align-items: stretch; }
+      .quick-card-actions { flex-direction: column; width: 100%; }
+      .quick-card-actions .btn { width: 100%; justify-content: center; }
+      .kpi-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+      .finance-banner { padding: 1.25rem; gap: 1rem; }
+      .finance-item .amount { font-size: 1.4rem; }
+      .matrix-filter-bar { flex-direction: column; gap: 0.75rem; }
+      .matrix-beds-container { grid-template-columns: 1fr; }
+      .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+      .modal-content-large, .modal-content-payment { width: 100%; max-height: 100vh; border-radius: 0; }
+    }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, ComponentCanDeactivate {
   summary: DashboardSummary | null = null;
   branches: Branch[] = [];
   guests: Guest[] = [];
@@ -969,6 +999,17 @@ export class DashboardComponent implements OnInit {
         this.loadDashboardData(owner.ownerId);
       }
     });
+  }
+
+  canDeactivate(): boolean {
+    // Only block navigation if the payment modal is actively open and dirty with input
+    if (this.showPaymentModal) {
+      const isDirty = this.paymentForm.amountPaid > 0 || 
+                      !!this.paymentForm.transactionReference.trim() || 
+                      !!this.paymentForm.receiptNotes.trim();
+      return !isDirty;
+    }
+    return true;
   }
 
   loadDashboardData(ownerId: string): void {

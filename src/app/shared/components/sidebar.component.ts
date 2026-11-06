@@ -78,6 +78,12 @@ import { RouterModule } from '@angular/router';
           </div>
           <span class="quota-sub">{{ branchesCount }} Active</span>
         </div>
+
+        <div class="mobile-sidebar-user">
+          <button class="btn btn-outline-danger w-full mobile-logout-btn" (click)="onLogoutClick()">
+            <span>🚪</span> Logout Account
+          </button>
+        </div>
       </div>
     </aside>
   `,
@@ -154,6 +160,27 @@ import { RouterModule } from '@angular/router';
       .quota-fill { height: 100%; background: var(--primary); border-radius: var(--radius-full); }
       .quota-sub { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
     }
+    .mobile-sidebar-user {
+      display: none;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-color);
+    }
+    .mobile-logout-btn {
+      color: #ef4444;
+      border-color: #fca5a5;
+      background: #fef2f2;
+      font-weight: 700;
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      &:hover { background: #fee2e2; }
+    }
     @media (max-width: 1024px) {
       .sidebar {
         position: fixed;
@@ -165,6 +192,7 @@ import { RouterModule } from '@angular/router';
         &.open { left: 0; }
       }
       .sidebar-header-mobile { display: flex; }
+      .mobile-sidebar-user { display: block; }
     }
   `]
 })
@@ -173,4 +201,10 @@ export class SidebarComponent {
   @Input() branchesCount = 0;
   @Input() guestsCount = 0;
   @Output() closeMenu = new EventEmitter<void>();
+  @Output() logout = new EventEmitter<void>();
+
+  onLogoutClick(): void {
+    this.closeMenu.emit();
+    this.logout.emit();
+  }
 }

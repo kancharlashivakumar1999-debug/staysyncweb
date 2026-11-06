@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, publicGuard } from './core/guards/auth.guard';
+import { pendingChangesGuard } from './core/guards/pending-changes.guard';
 
 export const routes: Routes = [
   // Default entry route points to Login page
@@ -21,26 +22,31 @@ export const routes: Routes = [
   {
     path: 'dashboard',
     canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard],
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   {
     path: 'branches',
     canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard],
     loadComponent: () => import('./features/branches/branches.component').then(m => m.BranchesComponent)
   },
   {
     path: 'guests',
     canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard],
     loadComponent: () => import('./features/guests/guests.component').then(m => m.GuestsComponent)
   },
   {
     path: 'ledger',
     canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard],
     loadComponent: () => import('./features/ledger/ledger.component').then(m => m.LedgerComponent)
   },
   {
     path: 'expenses',
     canActivate: [authGuard],
+    canDeactivate: [pendingChangesGuard],
     loadComponent: () => import('./features/expenses/expenses.component').then(m => m.ExpensesComponent)
   },
   {

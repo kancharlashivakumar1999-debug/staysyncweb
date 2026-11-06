@@ -103,6 +103,7 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
                           <span class="bed-num" (click)="openBedHistory(bed.bedId)" style="cursor: pointer; text-decoration: underline;" title="Click to view full Bed History">
                             Bed {{ bed.bedNumber }} 🔍
                           </span>
+                          <span class="bed-code" *ngIf="bed.bedCode">{{ bed.bedCode }}</span>
                           <span class="bed-status">{{ bed.isOccupied ? 'Occupied' : 'Free' }}</span>
                         </div>
                         <div class="bed-price">{{ bed.bedRent | inrCurrency }}/mo</div>
@@ -517,7 +518,23 @@ import { BedHistoryModalComponent } from '../../shared/components/bed-history-mo
           padding: 0.5rem;
           background: #ffffff;
           text-align: center;
-          .bed-header { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 700; }
+          .bed-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 0.75rem; 
+            font-weight: 700;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+          }
+          .bed-code {
+            font-family: monospace;
+            font-size: 0.65rem;
+            color: #2563eb;
+            background: #eff6ff;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+          }
           .bed-price { font-size: 0.75rem; color: var(--text-muted); margin: 0.25rem 0; }
           &.occupied { background: #fef2f2; border-color: #fecaca; .bed-status { color: #dc2626; } }
           &.available { background: #ecfdf5; border-color: #a7f3d0; .bed-status { color: #059669; } }

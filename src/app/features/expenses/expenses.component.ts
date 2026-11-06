@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ComponentCanDeactivate } from '../../core/guards/pending-changes.guard';
 import { Expense, ExpenseSummary, Branch } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 
@@ -180,7 +182,7 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
     .modal-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
   `]
 })
-export class ExpensesComponent implements OnInit {
+export class ExpensesComponent implements OnInit, ComponentCanDeactivate {
   expenses: Expense[] = [];
   branches: Branch[] = [];
   summary: ExpenseSummary = { totalExpenses: 0, byCategory: {} };
@@ -197,18 +199,34 @@ export class ExpensesComponent implements OnInit {
     notes: ''
   };
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(private api: PgApiService, private auth: AuthService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  canDeactivate(): boolean {
+    if (this.showModal) {
+      const isDirty = this.newExpense.amount > 0 || 
+                      !!this.newExpense.title.trim() || 
+                      !!this.newExpense.vendorName.trim();
+      return !isDirty;
+    }
+    return true;
   }
 
   loadData(): void {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
-    this.api.getExpenses(owner.ownerId).subscribe(e => this.expenses = e);
-    this.api.getExpenseSummary(owner.ownerId).subscribe(s => this.summary = s);
+    this.api.getExpenses(owner.ownerId).subscribe({
+      next: e => this.expenses = e,
+      error: () => this.toast.error('Failed to load expenses.')
+    });
+    this.api.getExpenseSummary(owner.ownerId).subscribe({
+      next: s => this.summary = s,
+      error: () => {}
+    });
     this.api.getBranches(owner.ownerId).subscribe(b => {
       this.branches = b;
       if (b.length > 0 && !this.newExpense.branchId) {
@@ -221,15 +239,34 @@ export class ExpensesComponent implements OnInit {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
+    if (!this.newExpense.title.trim() || this.newExpense.amount <= 0) {
+      this.toast.warning('Please enter expense title and a valid amount.');
+      return;
+    }
+
     const payload = { ...this.newExpense, ownerId: owner.ownerId };
-    this.api.createExpense(payload).subscribe(() => {
-      this.showModal = false;
-      this.loadData();
+    this.api.createExpense(payload).subscribe({
+      next: () => {
+        this.showModal = false;
+        this.newExpense.title = '';
+        this.newExpense.amount = 0;
+        this.newExpense.vendorName = '';
+        this.newExpense.notes = '';
+        this.loadData();
+        this.toast.success('Expense recorded successfully!');
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to record expense.')
     });
   }
 
   deleteExpense(expenseId: string): void {
     if (!confirm('Are you sure you want to delete this expense record?')) return;
-    this.api.deleteExpense(expenseId).subscribe(() => this.loadData());
+    this.api.deleteExpense(expenseId).subscribe({
+      next: () => {
+        this.loadData();
+        this.toast.success('Expense deleted.');
+      },
+      error: () => this.toast.error('Failed to delete expense.')
+    });
   }
 }

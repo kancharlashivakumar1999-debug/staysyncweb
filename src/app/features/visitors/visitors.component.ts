@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ComponentCanDeactivate } from '../../core/guards/pending-changes.guard';
 import { Visitor, Branch, Guest } from '../../models/pg.models';
 
 @Component({
@@ -141,7 +143,7 @@ import { Visitor, Branch, Guest } from '../../models/pg.models';
     .modal-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
   `]
 })
-export class VisitorsComponent implements OnInit {
+export class VisitorsComponent implements OnInit, ComponentCanDeactivate {
   visitors: Visitor[] = [];
   guests: Guest[] = [];
   branches: Branch[] = [];
@@ -157,17 +159,28 @@ export class VisitorsComponent implements OnInit {
     vehicleNumber: ''
   };
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(private api: PgApiService, private auth: AuthService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  canDeactivate(): boolean {
+    if (this.showModal) {
+      const isDirty = !!this.newVisitor.visitorName.trim() || !!this.newVisitor.visitorPhone.trim();
+      return !isDirty;
+    }
+    return true;
   }
 
   loadData(): void {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
-    this.api.getVisitors(owner.ownerId).subscribe(v => this.visitors = v);
+    this.api.getVisitors(owner.ownerId).subscribe({
+      next: v => this.visitors = v,
+      error: () => this.toast.error('Failed to load visitor register.')
+    });
     this.api.getGuests(owner.ownerId).subscribe(g => this.guests = g);
     this.api.getBranches(owner.ownerId).subscribe(b => this.branches = b);
   }
@@ -181,14 +194,33 @@ export class VisitorsComponent implements OnInit {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
+    if (!this.newVisitor.visitorName.trim() || !this.newVisitor.visitorPhone.trim() || !this.newVisitor.guestId) {
+      this.toast.warning('Please enter visitor name, phone and select resident visited.');
+      return;
+    }
+
     const payload = { ...this.newVisitor, ownerId: owner.ownerId };
-    this.api.logVisitor(payload).subscribe(() => {
-      this.showModal = false;
-      this.loadData();
+    this.api.logVisitor(payload).subscribe({
+      next: () => {
+        this.showModal = false;
+        this.newVisitor.visitorName = '';
+        this.newVisitor.visitorPhone = '';
+        this.newVisitor.purposeOfVisit = '';
+        this.newVisitor.vehicleNumber = '';
+        this.loadData();
+        this.toast.success('Visitor check-in logged successfully!');
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to log visitor.')
     });
   }
 
   checkOut(visitorId: string): void {
-    this.api.checkOutVisitor(visitorId).subscribe(() => this.loadData());
+    this.api.checkOutVisitor(visitorId).subscribe({
+      next: () => {
+        this.loadData();
+        this.toast.success('Visitor checked out.');
+      },
+      error: () => this.toast.error('Failed to check out visitor.')
+    });
   }
 }

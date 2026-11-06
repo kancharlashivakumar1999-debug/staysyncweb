@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PgApiService } from '../../core/services/pg-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ComponentCanDeactivate } from '../../core/guards/pending-changes.guard';
 import { StaffMember, Branch } from '../../models/pg.models';
 import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
 
@@ -134,7 +136,7 @@ import { InrCurrencyPipe } from '../../shared/pipes/inr-currency.pipe';
     .modal-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
   `]
 })
-export class StaffComponent implements OnInit {
+export class StaffComponent implements OnInit, ComponentCanDeactivate {
   staffList: StaffMember[] = [];
   branches: Branch[] = [];
   showModal = false;
@@ -148,17 +150,28 @@ export class StaffComponent implements OnInit {
     salary: 15000
   };
 
-  constructor(private api: PgApiService, private auth: AuthService) {}
+  constructor(private api: PgApiService, private auth: AuthService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  canDeactivate(): boolean {
+    if (this.showModal) {
+      const isDirty = !!this.newStaff.fullName.trim() || !!this.newStaff.phoneNumber.trim() || !!this.newStaff.email.trim();
+      return !isDirty;
+    }
+    return true;
   }
 
   loadData(): void {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
-    this.api.getStaff(owner.ownerId).subscribe(s => this.staffList = s);
+    this.api.getStaff(owner.ownerId).subscribe({
+      next: s => this.staffList = s,
+      error: () => this.toast.error('Failed to load staff list.')
+    });
     this.api.getBranches(owner.ownerId).subscribe(b => this.branches = b);
   }
 
@@ -166,19 +179,37 @@ export class StaffComponent implements OnInit {
     const owner = this.auth.currentUserValue;
     if (!owner) return;
 
+    if (!this.newStaff.fullName.trim() || !this.newStaff.phoneNumber.trim()) {
+      this.toast.warning('Please enter staff name and phone number.');
+      return;
+    }
+
     const payload = {
       ...this.newStaff,
       ownerId: owner.ownerId,
       branchId: this.newStaff.branchId || null
     };
 
-    this.api.createStaff(payload).subscribe(() => {
-      this.showModal = false;
-      this.loadData();
+    this.api.createStaff(payload).subscribe({
+      next: () => {
+        this.showModal = false;
+        this.newStaff.fullName = '';
+        this.newStaff.email = '';
+        this.newStaff.phoneNumber = '';
+        this.loadData();
+        this.toast.success('Staff member registered successfully!');
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to add staff member.')
     });
   }
 
   toggleStatus(staff: StaffMember): void {
-    this.api.toggleStaffStatus(staff.staffId, !staff.isActive).subscribe(() => this.loadData());
+    this.api.toggleStaffStatus(staff.staffId, !staff.isActive).subscribe({
+      next: () => {
+        this.loadData();
+        this.toast.info(`Staff member marked as ${!staff.isActive ? 'Active' : 'Inactive'}.`);
+      },
+      error: () => this.toast.error('Failed to change staff status.')
+    });
   }
 }
