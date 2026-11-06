@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { NavbarComponent } from './shared/components/navbar.component';
 import { SidebarComponent } from './shared/components/sidebar.component';
 import { ToasterComponent } from './shared/components/toaster.component';
+import { GlobalLoaderComponent } from './shared/components/global-loader.component';
 import { AuthService } from './core/services/auth.service';
 import { PgApiService } from './core/services/pg-api.service';
 import { Owner, Branch } from './models/pg.models';
@@ -11,8 +12,9 @@ import { Owner, Branch } from './models/pg.models';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterModule, NavbarComponent, SidebarComponent, ToasterComponent],
+  imports: [CommonModule, RouterModule, NavbarComponent, SidebarComponent, ToasterComponent, GlobalLoaderComponent],
   template: `
+    <app-global-loader></app-global-loader>
     <app-toaster></app-toaster>
     <div class="app-shell" [class.auth-shell]="isAuthRoute">
       <!-- Sticky Top Navbar -->
